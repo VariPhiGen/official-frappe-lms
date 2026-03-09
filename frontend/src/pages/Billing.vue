@@ -69,7 +69,7 @@
 								:disabled="orderSummary.data.discount_amount > 0"
 								@input="appliedCoupon = $event.target.value.toUpperCase()"
 								@keydown.enter="applyCouponCode"
-								placeholder="COUPON2025"
+								placeholder="COUPON"
 								autocomplete="off"
 								class="flex-1 [&_input]:bg-white"
 							/>
@@ -89,6 +89,32 @@
 									<X class="size-4 stroke-1.5" />
 								</template>
 							</Button>
+						</div>
+						<div
+							v-if="availableCoupons.length"
+							class="mt-3 space-y-1.5"
+						>
+							<span class="text-ink-gray-5 text-xs">{{ __('Available coupons') }}:</span>
+							<ul class="space-y-1">
+								<li
+									v-for="coupon in availableCoupons"
+									:key="coupon.code"
+									class="flex items-center justify-between gap-2 text-sm py-1.5 px-2 rounded hover:bg-surface-gray-3 cursor-pointer"
+									:class="{
+										'bg-surface-gray-3': appliedCoupon === coupon.code,
+									}"
+									@click="selectCoupon(coupon.code)"
+								>
+									<span class="font-medium text-ink-gray-9">{{ coupon.code }}</span>
+									<span class="text-ink-gray-6">{{ coupon.discount_label }}</span>
+									<span
+										v-if="coupon.expires_on"
+										class="text-ink-gray-5 text-xs"
+									>
+										{{ __('Expires') }} {{ formatDate(coupon.expires_on) }}
+									</span>
+								</li>
+							</ul>
 						</div>
 					</div>
 
@@ -242,6 +268,7 @@ import { useTelemetry } from 'frappe-ui/frappe'
 import { getLmsRoute } from '@/utils/basePath'
 
 const user = inject('$user')
+const dayjs = inject('$dayjs')
 const { brand } = sessionStore()
 const showConsentWarning = ref(false)
 const { capture } = useTelemetry()
@@ -275,6 +302,16 @@ const access = createResource({
 	onSuccess(data) {
 		setBillingDetails(data.address)
 		orderSummary.submit()
+		// Fetch applicable coupons so the list shows on billing
+		const doctype = props.type === 'batch' ? 'LMS Batch' : 'LMS Course'
+		call('lms.lms.utils.get_applicable_coupons', {
+			doctype,
+			docname: props.name,
+		}).then((result) => {
+			availableCoupons.value = Array.isArray(result) ? result : []
+		}).catch(() => {
+			availableCoupons.value = []
+		})
 	},
 })
 
@@ -292,6 +329,8 @@ const orderSummary = createResource({
 		showError(err)
 	},
 })
+
+const availableCoupons = ref([])
 
 const appliedCoupon = ref(null)
 const billingDetails = reactive({})
@@ -367,6 +406,16 @@ function applyCouponCode() {
 function removeCoupon() {
 	appliedCoupon.value = null
 	orderSummary.reload()
+}
+
+function selectCoupon(code) {
+	if (orderSummary.data?.discount_amount > 0) return
+	appliedCoupon.value = code
+	orderSummary.reload()
+}
+
+function formatDate(dateStr) {
+	return dateStr ? dayjs(dateStr).format('DD MMM YYYY') : ''
 }
 
 const validateAddress = () => {

@@ -1829,6 +1829,72 @@ def calculate_discount_amount(base_amount: float, coupon: dict) -> float:
 
 
 @frappe.whitelist()
+def get_applicable_coupons(doctype: str, docname: str) -> list:
+	"""Return list of coupons to show on billing (enabled, not expired, within limit).
+	Includes coupons applicable to this course/batch; apply will validate applicability."""
+	reference_doctype = "LMS Course" if doctype == "LMS Course" else "LMS Batch"
+	applicable_coupon_names = frappe.get_all(
+		"LMS Coupon Item",
+		filters={
+			"reference_doctype": reference_doctype,
+			"reference_name": docname,
+		},
+		pluck="parent",
+		distinct=True,
+	)
+	today = getdate()
+	# If we have coupons linked to this course, use only those; otherwise show all enabled coupons
+	if applicable_coupon_names:
+		coupons = frappe.get_all(
+			"LMS Coupon",
+			filters={"name": ["in", applicable_coupon_names], "enabled": 1},
+			fields=[
+				"name",
+				"code",
+				"discount_type",
+				"percentage_discount",
+				"fixed_amount_discount",
+				"expires_on",
+				"usage_limit",
+				"redemption_count",
+			],
+		)
+	else:
+		coupons = frappe.get_all(
+			"LMS Coupon",
+			filters={"enabled": 1},
+			fields=[
+				"name",
+				"code",
+				"discount_type",
+				"percentage_discount",
+				"fixed_amount_discount",
+				"expires_on",
+				"usage_limit",
+				"redemption_count",
+			],
+		)
+	result = []
+	for c in coupons:
+		if c.get("expires_on") and getdate(c.expires_on) < today:
+			continue
+		if c.get("usage_limit") and cint(c.get("redemption_count") or 0) >= cint(c.usage_limit):
+			continue
+		discount_label = ""
+		if c.discount_type == "Percentage":
+			discount_label = f"{c.percentage_discount}%"
+		else:
+			discount_label = _("{0} off").format(fmt_money(c.fixed_amount_discount or 0, 0, ""))
+		result.append({
+			"code": c.code,
+			"discount_type": c.discount_type,
+			"discount_label": discount_label,
+			"expires_on": c.expires_on,
+		})
+	return result
+
+
+@frappe.whitelist()
 def get_lesson_creation_details(course: str, chapter: int, lesson: int) -> dict:
 	frappe.only_for(["Moderator", "Course Creator"])
 	chapter_name = frappe.db.get_value("Chapter Reference", {"parent": course, "idx": chapter}, "chapter")
