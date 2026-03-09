@@ -1,4 +1,7 @@
-#!bin/bash
+#!/bin/bash
+
+# Mark mounted workspace as safe for git inside the container
+git config --global --add safe.directory /workspace
 
 if [ -d "/home/frappe/frappe-bench/apps/frappe" ]; then
     echo "Bench already exists, skipping init"
@@ -24,7 +27,8 @@ bench set-redis-socketio-host redis://redis:6379
 sed -i '/redis/d' ./Procfile
 sed -i '/watch/d' ./Procfile
 
-bench get-app lms
+#bench get-app lms
+bench get-app lms https://github.com/VariPhiGen/official-frappe-lms.git --branch vgiskill-develop
 
 bench new-site lms.localhost \
 --force \
