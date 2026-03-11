@@ -1613,6 +1613,21 @@ def has_submitted_assessment(assessment: str, assessment_type: str, member: str 
 
 
 def can_access_topic(doctype: str, docname: str) -> bool:
+	"""Return True if current user can access discussion for given reference.
+
+	Note: For some calls (like get_discussion_replies) we receive the
+	Discussion Topic name instead of the reference docname. In that case,
+	resolve the underlying reference before running access checks.
+	"""
+	# If docname is actually a Discussion Topic, resolve its reference
+	if frappe.db.exists("Discussion Topic", docname):
+		ref_doctype, ref_docname = frappe.db.get_value(
+			"Discussion Topic", docname, ["reference_doctype", "reference_docname"]
+		)
+		# Only override when the expected doctype matches
+		if ref_doctype == doctype and ref_docname:
+			docname = ref_docname
+
 	is_student = False
 	if doctype == "Course Lesson":
 		course = frappe.db.get_value("Course Lesson", docname, "course")
