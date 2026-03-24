@@ -91,13 +91,13 @@
 							</Button>
 						</div>
 						<div
-							v-if="availableCoupons.length"
+							v-if="visibleCoupons.length"
 							class="mt-3 space-y-1.5"
 						>
 							<span class="text-ink-gray-5 text-xs">{{ __('Available coupons') }}:</span>
 							<ul class="space-y-1">
 								<li
-									v-for="coupon in availableCoupons"
+									v-for="coupon in visibleCoupons"
 									:key="coupon.code"
 									class="flex items-center justify-between gap-2 text-sm py-1.5 px-2 rounded hover:bg-surface-gray-3 cursor-pointer"
 									:class="{
@@ -331,6 +331,9 @@ const orderSummary = createResource({
 })
 
 const availableCoupons = ref([])
+const visibleCoupons = computed(() =>
+	availableCoupons.value.filter((coupon) => coupon?.code?.toUpperCase() === 'VGI90')
+)
 
 const appliedCoupon = ref(null)
 const billingDetails = reactive({})
